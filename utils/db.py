@@ -57,7 +57,6 @@ def get_doctor_by_email(email):
         doctor = doctor_collection.find_one({"email": email})
         if doctor:
             doctor["_id"] = str(doctor["_id"])
-            doctor.pop("password")
             return doctor
         return False
     except errors.PyMongoError as e:

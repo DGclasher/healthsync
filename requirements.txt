@@ -1,5 +1,6 @@
 pyjwt
 bcrypt
+pandas
 pymongo
 aiohttp
 requests

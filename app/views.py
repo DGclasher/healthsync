@@ -25,13 +25,13 @@ def login():
     if not email or not password:
         return jsonify({"message": "No input data provided"}), 400
     user_obj = db.get_doctor_by_email(email)
-    if not user:
-        return jsonify({"message": "User does not exist"}), 400
+    print(user_obj)
+    if not user_obj:
+        return jsonify({"message": "Invalid credentials"}), 400
     if not user.check_password(password, user_obj["password"]):
-        return jsonify({"message": "Incorrect password"}), 400
+        return jsonify({"message": "Invalid credentials"}), 400
     token = user.generate_token(str(user_obj["_id"]), "doctor")
-    return jsonify({"token": token})
-
+    return jsonify({"token": token}), 200
 
 @app.route('/login/patient', methods=['POST'])
 def login_patient():
@@ -43,13 +43,12 @@ def login_patient():
     if not email or not password:
         return jsonify({"message": "No input data provided"}), 400
     user_obj = db.get_patient_by_email(email)
-    if not user:
-        return jsonify({"message": "Incorrect credentials"}), 400
+    if not user_obj:
+        return jsonify({"message": "User does not exist"}), 400
     if not user.check_password(password, user_obj["password"]):
         return jsonify({"message": "Incorrect credentials"}), 400
     token = user.generate_token(str(user_obj["_id"]), "patient")
-    return jsonify({"token": token})
-
+    return jsonify({"token": token}), 200
 
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
@@ -162,6 +161,7 @@ async def analyze_image():
         doctors = db.get_available_doctors(sp)
         if doctors:
             for doctor in doctors:
+                doctor.pop("password")
                 d_set.add(tuple(doctor.items()))
     d_list = [dict(doctor_tuple) for doctor_tuple in d_set]
     return jsonify({"message": "Success", "data": res, "specialist": r, "doctors": d_list}), 200
@@ -172,4 +172,27 @@ def connect():
     data = request.get_json()
     if not data:
         return jsonify({"message": "No input data provided"}), 400
+    
     pass
+
+# @app.route('/search', methods=['POST'])
+# def search():
+#     medical_condition = request.form['medical_condition']
+    
+#     # Read the CSV file into a DataFrame
+#     df = pd.read_csv('drugs_for_common_treatments.csv')
+    
+#     # Check if the 'medical_condition' column exists in the DataFrame
+#     if 'medical_condition' in df.columns:
+#         # Create a boolean mask based on the user-provided medical_condition
+#         mask = df['medical_condition'].str.contains(medical_condition, case=False)
+#         result_df = df[mask]
+
+#         # Display drug names in JSON format
+#         if not result_df.empty:
+#             drug_names = result_df['drug_name'].tolist()
+#             return jsonify({'medical_condition': medical_condition, 'drug_names': drug_names})
+#         else:
+#             return jsonify({'error': f'No drugs found for "{medical_condition}".'})
+#     else:
+#         return jsonify({'error': 'Column "medical_condition" not found in the CSV file.'})
