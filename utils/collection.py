@@ -4,7 +4,6 @@ from pymongo import MongoClient
 client = MongoClient(config("MONGO_URI"))
 db = client[config("MONGO_DB")]
 
-
 def create_doctor_collection(collection_name):
     res = db.create_collection(collection_name, validator={
         '$jsonSchema': {

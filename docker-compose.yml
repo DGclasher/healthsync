@@ -1,0 +1,24 @@
+services:
+
+  mongodb:
+    image: mongo:latest
+    container_name: healthsync-db
+    expose:
+      - "27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: clasher
+      MONGO_INITDB_ROOT_PASSWORD: clasher
+      MONGO_INITDB_DATABASE: thedb
+    volumes:
+      - ./mongo_data:/data/db
+  
+  healthsync:
+    image: dgclasher/healthsync-api:latest
+    pull-policy: always
+    container_name: healthsync-api
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb

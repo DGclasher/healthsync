@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import aiohttp
 import requests
@@ -10,7 +11,8 @@ from flask import jsonify, current_app, request
 
 @app.route('/')
 def home():
-    return jsonify({'message': 'Hello, World!'})
+    doctors = db.get_doctor_by_email("test@doctors.com")
+    return jsonify({"message": "Welcome to the Health API", "data": doctors}), 200
 
 
 @app.route('/login/doctor', methods=['POST'])
@@ -67,7 +69,7 @@ def register_patient():
         return jsonify({"message": "Error creating user"}), 500
     created_patient["_id"] = str(created_patient["_id"])
     token = user.generate_token(created_patient["_id"], "patient")
-    return jsonify({"message": "User created successfully", "data": created_patient, "token":token}), 201
+    return jsonify({"message": "User created successfully", "data": created_patient, "token": token}), 201
 
 
 @app.route('/register/doctor', methods=['POST'])
@@ -89,7 +91,7 @@ def register_doctor():
         return jsonify({"message": "Error creating user"}), 500
     created_doctor["_id"] = str(created_doctor["_id"])
     token = user.generate_token(created_doctor["_id"], "doctor")
-    return jsonify({"message": "Doctor created successfully", "data": created_doctor, "token":token}), 201
+    return jsonify({"message": "Doctor created successfully", "data": created_doctor, "token": token}), 201
 
 
 @app.route('/validate_json', methods=['GET'])
@@ -139,12 +141,9 @@ async def predict_disease():
             except Exception as e:
                 return jsonify({"message": "Error", "data": str(e)}), 500
 
-def get_available_doctors(speciality):
-    doctors = db.get_available_doctors(speciality)
-    return doctors
 
 @app.route('/analyze_image', methods=['POST'])
-def analyze_image():
+async def analyze_image():
     image = request.files.get("image")
     endpoint = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
     headers = {
@@ -156,8 +155,21 @@ def analyze_image():
     r = requests.post("http://localhost:5000/predict", json={"symptoms": generated_text})
     r = json.loads(r.text)
     speciality = r["data"]["answer"]
-    print(speciality)
-    speciality = speciality.split(" ")[0]
-    print(speciality)
-    docs = get_available_doctors(speciality)
-    return jsonify({"message": "Success", "data":res, "specialist":r, "doctors":docs}), 200
+    speciality = re.sub(r'[^\w\s]', '', speciality)
+    sp_list = speciality.split(" ")
+    d_set = set()
+    for sp in sp_list:
+        doctors = db.get_available_doctors(sp)
+        if doctors:
+            for doctor in doctors:
+                d_set.add(tuple(doctor.items()))
+    d_list = [dict(doctor_tuple) for doctor_tuple in d_set]
+    return jsonify({"message": "Success", "data": res, "specialist": r, "doctors": d_list}), 200
+
+
+@app.route('/connect', methods=['POST'])
+def connect():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "No input data provided"}), 400
+    pass
