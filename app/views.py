@@ -4,7 +4,6 @@ import pandas as pd
 from app import app
 from utils import calls
 from utils import user, db
-from decouple import config
 from flask import jsonify, current_app, request
 
 @app.route('/login/doctor', methods=['POST'])
@@ -118,28 +117,35 @@ async def analyze_disease():
     except Exception as e:
         print(e)
         return jsonify({"message": "Invalid token"}), 401
-    image = request.files.get("image")
-    symptoms = request.form.get("symptoms")
-    if image and symptoms:
-        res = calls.analyze_both(image, symptoms)
-        speciality = res["answer"]
-    if image and not symptoms:
-        res = calls.analyze_image_only(image)
-        speciality = res["answer"]
-    if symptoms and not image:
-        res = calls.analyze_symptoms(symptoms)
-        speciality = res["answer"]
-    print(speciality)
-    speciality = re.sub(r'[^\w\s]', '', speciality)
-    sp_list = speciality.split(" ")
-    d_set = set()
-    for sp in sp_list:
-        doctors = db.get_available_doctors(sp)
-        if doctors:
-            for doctor in doctors:
-                d_set.add(tuple(doctor.items()))
-    d_list = [dict(doctor_tuple) for doctor_tuple in d_set]
-    return jsonify({"message": "Success", "data": res, "specialist": speciality, "doctors": d_list}), 200
+    try:
+        image = request.files.get("image")
+        symptoms = request.form.get("symptoms")
+        speciality = ""
+        res=""
+        if image and symptoms:
+            res = calls.analyze_both(image, symptoms)
+            speciality = res["answer"]
+        if image and not symptoms:
+            res = calls.analyze_image_only(image)
+            speciality = res["answer"]
+        if symptoms and not image:
+            res = calls.analyze_symptoms(symptoms)
+            speciality = res["answer"]
+        speciality = re.sub(r'[^\w\s]', '', speciality)
+        sp_list = speciality.split(" ")
+        print(sp_list)
+        d_set = set()
+        for sp in sp_list:
+            if sp!="":
+                doctors = db.get_available_doctors(sp)
+                if doctors:
+                    for doctor in doctors:
+                        d_set.add(tuple(doctor.items()))
+        d_list = [dict(doctor_tuple) for doctor_tuple in d_set]
+        return jsonify({"message": "Success", "specialist": speciality, "doctors": d_list}), 200
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "Error", "error":str(e)}), 500
 
 
 @app.route('/connect_doctor', methods=['POST'])
