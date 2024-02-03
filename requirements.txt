@@ -4,5 +4,6 @@ pandas
 pymongo
 aiohttp
 requests
+flask-cors
 flask[async]
 python-decouple

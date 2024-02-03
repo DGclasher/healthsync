@@ -1,8 +1,10 @@
 from flask import Flask
+from flask_cors import CORS
 from decouple import config
 from utils import collection
 
 app = Flask(__name__)
+CORS(app)
 
 app.secret_key = config("SECRET_KEY") 
 
