@@ -1,0 +1,7 @@
+pyjwt
+bcrypt
+pymongo
+aiohttp
+requests
+flask[async]
+python-decouple

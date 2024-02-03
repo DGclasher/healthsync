@@ -1,0 +1,35 @@
+1. If headache, say 'general physician'.
+2. If fever, say 'primary care physician'.
+3. If persistent or severe cough, say 'pulmonologist'.
+4. If sore throat, say 'ENT specialist'.
+5. If runny nose, say 'ENT specialist'.
+6. If stuffy nose, say 'ENT specialist'.
+7. If sneezing due to allergies, say 'allergist'.
+8. If itchy eyes due to allergies, say 'ophthalmologist'.
+9. If earache, say 'ENT specialist'.
+10. If toothache, say 'dentist'.
+11. If jaw pain, say 'dentist'.
+12. If nausea and vomiting, say 'gastroenterologist'.
+13. If diarrhea, say 'gastroenterologist'.
+14. If constipation, say 'gastroenterologist'.
+15. If persistent or severe abdominal pain, say 'gastroenterologist'.
+16. If heartburn, say 'gastroenterologist'.
+17. If indigestion, say 'gastroenterologist'.
+18. If bloating, say 'gastroenterologist'.
+19. If shortness of breath, say 'pulmonologist'.
+20. If chest pain, say 'cardiologist'.
+21. If dizziness, say 'neurologist'.
+22. If fatigue, say 'primary care physician'.
+23. If insomnia, say 'sleep specialist'.
+24. If muscle pain, say 'rheumatologist'.
+25. If joint pain, say 'rheumatologist'.
+26. If back pain, say 'orthopedic surgeon'.
+27. If skin rash, say 'dermatologist'.
+28. If itchy skin, say 'dermatologist'.
+29. If hair loss, say 'dermatologist'.
+30. If nail problems, say 'dermatologist'.
+31. If vision problems, say 'ophthalmologist'.
+32. If hearing loss, say 'audiologist'.
+33. If speech difficulties, say 'speech-language pathologist'.
+34. If mental health concerns, say 'psychiatrist'. 
+35. Else say 'General physician'.
