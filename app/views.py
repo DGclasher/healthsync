@@ -1,10 +1,10 @@
 import os
 import re
-import pandas as pd
 from app import app
+import pandas as pd
 from utils import calls
 from utils import user, db
-from flask import jsonify, current_app, request
+from flask import jsonify, request
 
 @app.route('/login/doctor', methods=['POST'])
 def login():
@@ -21,8 +21,10 @@ def login():
         return jsonify({"message": "Invalid credentials"}), 400
     if not user.check_password(password, user_obj["password"]):
         return jsonify({"message": "Invalid credentials"}), 400
+    user_obj["_id"] = str(user_obj["_id"])
+    user_obj.pop("password")
     token = user.generate_token(str(user_obj["_id"]), "doctor")
-    return jsonify({"token": token}), 200
+    return jsonify({"token": token, "data":user_obj}), 200
 
 @app.route('/login/patient', methods=['POST'])
 def login_patient():
@@ -39,7 +41,9 @@ def login_patient():
     if not user.check_password(password, user_obj["password"]):
         return jsonify({"message": "Incorrect credentials"}), 400
     token = user.generate_token(str(user_obj["_id"]), "patient")
-    return jsonify({"token": token}), 200
+    user_obj["_id"] = str(user_obj["_id"])
+    user_obj.pop("password")
+    return jsonify({"token": token, "data":user_obj}), 200
 
 @app.route('/register/patient', methods=['POST'])
 def register_patient():
@@ -85,23 +89,6 @@ def register_doctor():
     token = user.generate_token(created_doctor["_id"], "doctor")
     return jsonify({"message": "Doctor created successfully", "data": created_doctor, "token": token}), 201
 
-
-@app.route('/validate_json', methods=['GET'])
-def validate_json():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header:
-        return jsonify({"message": "Missing authorization header"}), 400
-    try:
-        auth_token = auth_header.split(" ")[1]
-        user_type = user.get_user_type(auth_token)
-        if user_type is None:
-            return jsonify({"message": "Invalid token"}), 401
-        else:
-            return jsonify({"message": "Valid token", "user_type": user_type}), 200
-    except Exception as e:
-        print(e)
-        return jsonify({"message": "Invalid token"}), 401
-
 @app.route('/analyze_disease', methods=['POST'])
 async def analyze_disease():
     auth_header = request.headers.get('Authorization')
@@ -146,7 +133,6 @@ async def analyze_disease():
     except Exception as e:
         print(e)
         return jsonify({"message": "Error", "error":str(e)}), 500
-
 
 @app.route('/connect_doctor', methods=['POST'])
 def connect():
