@@ -1,19 +1,11 @@
 import os
 import re
-import json
-import aiohttp
-import requests
+import pandas as pd
 from app import app
+from utils import calls
 from utils import user, db
 from decouple import config
 from flask import jsonify, current_app, request
-
-
-@app.route('/')
-def home():
-    doctors = db.get_doctor_by_email("test@doctors.com")
-    return jsonify({"message": "Welcome to the Health API", "data": doctors}), 200
-
 
 @app.route('/login/doctor', methods=['POST'])
 def login():
@@ -59,11 +51,13 @@ def register_patient():
     phone = data.get("phone")
     email = data.get("email")
     password = data.get("password")
-    if not name or not phone or not email or not password:
+    sex = data.get("sex")
+    dob = data.get("dob")
+    if not name or not phone or not email or not password or not sex or not dob:
         return jsonify({"message": "No input data provided"}), 400
     if db.get_patient_by_email(email):
         return jsonify({"message": "User already exists"}), 400
-    created_patient = db.create_patient(name, phone, email, password)
+    created_patient = db.create_patient(name, phone, email, password, dob, sex)
     if not created_patient:
         return jsonify({"message": "Error creating user"}), 500
     created_patient["_id"] = str(created_patient["_id"])
@@ -98,7 +92,6 @@ def validate_json():
     auth_header = request.headers.get('Authorization')
     if not auth_header:
         return jsonify({"message": "Missing authorization header"}), 400
-
     try:
         auth_token = auth_header.split(" ")[1]
         user_type = user.get_user_type(auth_token)
@@ -110,50 +103,33 @@ def validate_json():
         print(e)
         return jsonify({"message": "Invalid token"}), 401
 
-
-@app.route('/predict', methods=['POST'])
-async def predict_disease():
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "No input data provided"}), 400
-    symptoms = data.get("symptoms")
-    if not symptoms:
-        return jsonify({"message": "No input data provided"}), 400
-    endpoint = "https://api-inference.huggingface.co/models/timpal0l/mdeberta-v3-base-squad2"
-    headers = {
-        "Authorization": f"Bearer {config('AI_API_KEY')}",
-    }
-    context_path = os.path.join(os.getcwd(), 'app', 'context.txt')
-    with open(context_path, 'r') as f:
-        context = f.read()
-    payload = {
-        "inputs": {
-            "question": symptoms,
-            "context": context
-        }
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(endpoint, headers=headers, json=payload) as response:
-            try:
-                res = await response.text()
-                return jsonify({"message": "Success", "data": json.loads(res)}), 200
-            except Exception as e:
-                return jsonify({"message": "Error", "data": str(e)}), 500
-
-
-@app.route('/analyze_image', methods=['POST'])
-async def analyze_image():
+@app.route('/analyze_disease', methods=['POST'])
+async def analyze_disease():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"message": "Missing authorization header"}), 400
+    auth_token = auth_header.split(" ")[1]
+    try:
+        user_type = user.get_user_type(auth_token)
+        if user_type is None:
+            return jsonify({"message": "Invalid token"}), 401
+        if user_type != "patient":
+            return jsonify({"message": "Unauthorized"}), 403
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "Invalid token"}), 401
     image = request.files.get("image")
-    endpoint = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
-    headers = {
-        "Authorization": f"Bearer {config('AI_API_KEY')}",
-    }
-    res = requests.post(endpoint, headers=headers, data=image)
-    res = json.loads(res.text)
-    generated_text = res[0]["generated_text"]
-    r = requests.post("http://localhost:5000/predict", json={"symptoms": generated_text})
-    r = json.loads(r.text)
-    speciality = r["data"]["answer"]
+    symptoms = request.form.get("symptoms")
+    if image and symptoms:
+        res = calls.analyze_both(image, symptoms)
+        speciality = res["answer"]
+    if image and not symptoms:
+        res = calls.analyze_image_only(image)
+        speciality = res["answer"]
+    if symptoms and not image:
+        res = calls.analyze_symptoms(symptoms)
+        speciality = res["answer"]
+    print(speciality)
     speciality = re.sub(r'[^\w\s]', '', speciality)
     sp_list = speciality.split(" ")
     d_set = set()
@@ -161,38 +137,88 @@ async def analyze_image():
         doctors = db.get_available_doctors(sp)
         if doctors:
             for doctor in doctors:
-                doctor.pop("password")
                 d_set.add(tuple(doctor.items()))
     d_list = [dict(doctor_tuple) for doctor_tuple in d_set]
-    return jsonify({"message": "Success", "data": res, "specialist": r, "doctors": d_list}), 200
+    return jsonify({"message": "Success", "data": res, "specialist": speciality, "doctors": d_list}), 200
 
 
-@app.route('/connect', methods=['POST'])
+@app.route('/connect_doctor', methods=['POST'])
 def connect():
     data = request.get_json()
-    if not data:
+    if not data or "doctor_id" not in data or "availability" not in data:
         return jsonify({"message": "No input data provided"}), 400
-    
-    pass
+    res = db.set_doctor_availability(data.get("doctor_id"), True if data.get("availability") else False)
+    if res:
+        return jsonify({"message": "Success"}), 200
+    return jsonify({"message": "Error"}), 500
 
-# @app.route('/search', methods=['POST'])
-# def search():
-#     medical_condition = request.form['medical_condition']
-    
-#     # Read the CSV file into a DataFrame
-#     df = pd.read_csv('drugs_for_common_treatments.csv')
-    
-#     # Check if the 'medical_condition' column exists in the DataFrame
-#     if 'medical_condition' in df.columns:
-#         # Create a boolean mask based on the user-provided medical_condition
-#         mask = df['medical_condition'].str.contains(medical_condition, case=False)
-#         result_df = df[mask]
+@app.route('/recommend_drug', methods=['POST'])
+def search():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"message": "Missing authorization header"}), 400
+    auth_token = auth_header.split(" ")[1]
+    try:
+        user_type = user.get_user_type(auth_token)
+        if user_type is None:
+            return jsonify({"message": "Invalid token"}), 401
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "Invalid token"}), 401
+    medical_condition = request.json.get('medical_condition')
+    file_path = os.path.join(os.getcwd(), 'app', 'drugs_for_common_treatments.csv')
+    df = pd.read_csv(file_path)
+    if 'medical_condition' in df.columns:
+        mask = df['medical_condition'].str.contains(medical_condition, case=False)
+        result_df = df[mask]
+        if not result_df.empty:
+            drug_names = result_df['drug_name'].tolist()
+            return jsonify({'medical_condition': medical_condition, 'drug_names': drug_names})
+        else:
+            return jsonify({'error': f'No drugs found for "{medical_condition}".'})
+    else:
+        return jsonify({'error': 'Column "medical_condition" not found in the CSV file.'})
 
-#         # Display drug names in JSON format
-#         if not result_df.empty:
-#             drug_names = result_df['drug_name'].tolist()
-#             return jsonify({'medical_condition': medical_condition, 'drug_names': drug_names})
-#         else:
-#             return jsonify({'error': f'No drugs found for "{medical_condition}".'})
-#     else:
-#         return jsonify({'error': 'Column "medical_condition" not found in the CSV file.'})
+@app.route('/create_prescription', methods=['POST'])
+def create_prescription():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"message": "Missing authorization header"}), 400
+    auth_token = auth_header.split(" ")[1]
+    user_type = user.get_user_type(auth_token)
+    if user_type != "doctor":
+        return jsonify({"message": "Unauthorized"}), 403
+    data = request.get_json()
+    try:
+        patient_id = data.get("patient_id")
+        doctor_id = user.get_user_id(auth_token)
+        if not doctor_id:
+            return jsonify({"message": "Invalid token"}), 401
+        diagnosis = data.get("diagnosis")
+        medication = data.get("medication")
+        created_prescription = db.create_prescription(doctor_id, patient_id, diagnosis, medication)
+        if created_prescription:
+            return jsonify({"message": "Success", "data": created_prescription}), 201
+        return jsonify({"message": "Error"}), 500
+    except Exception as e:
+        print(e)
+        return jsonify({"message": "Error"}), 500
+
+@app.route('/get_my_prescriptions', methods=['GET'])
+def get_my_prescriptions():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        return jsonify({"message": "Missing authorization header"}), 400
+    auth_token = auth_header.split(" ")[1]
+    user_type = user.get_user_type(auth_token)
+    if user_type == "patient":
+        user_id = user.get_user_id(auth_token)
+        prescriptions = db.get_prescriptions_by_patient(user_id)
+        return jsonify({"message": "Success", "data": prescriptions}), 200
+    elif user_type == "doctor":
+        user_id = user.get_user_id(auth_token)
+        prescriptions = db.get_prescriptions_by_doctor(user_id)
+        return jsonify({"message": "Success", "data": prescriptions}), 200
+    else:
+        return jsonify({"message": "Unauthorized"}), 403
+    

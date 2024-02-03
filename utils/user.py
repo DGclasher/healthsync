@@ -30,3 +30,15 @@ def get_user_type(token):
     except Exception as e:
         print(e)
         return None
+
+def get_user_id(token):
+    try:
+        payload = jwt.decode(token, config("SECRET_KEY"), algorithms=["HS256"])
+        return payload["sub"]
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+    except Exception as e:
+        print(e)
+        return None
