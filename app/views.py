@@ -2,8 +2,8 @@ import os
 import re
 from app import app
 import pandas as pd
-from utils import calls
 from utils import user, db
+from utils import calls, pdf, mail
 from flask import jsonify, request
 
 @app.route('/login/doctor', methods=['POST'])
@@ -189,9 +189,16 @@ def create_prescription():
         diagnosis = data.get("diagnosis")
         medication = data.get("medication")
         created_prescription = db.create_prescription(doctor_id, patient_id, diagnosis, medication)
-        if created_prescription:
-            return jsonify({"message": "Success", "data": created_prescription}), 201
-        return jsonify({"message": "Error"}), 500
+        prescription_path = pdf.gen_prescription(created_prescription)
+        patient_obj = db.get_patient_by_id(patient_id)
+        email = patient_obj.get("email")
+        if email:
+            email_list = email.split()
+            print(email_list)
+            mail.send_email(email_list, patient_obj["name"], prescription_path)
+            return jsonify({"message":"Prescription created successfully and sent to mail."}), 200
+        else:
+            return jsonify({"message": "Patient email not found."}), 500
     except Exception as e:
         print(e)
         return jsonify({"message": "Error"}), 500

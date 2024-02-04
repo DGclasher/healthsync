@@ -4,6 +4,8 @@ pandas
 pymongo
 aiohttp
 requests
+reportlab
+flask-mail
 flask-cors
 flask[async]
 python-decouple

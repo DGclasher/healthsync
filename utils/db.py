@@ -69,6 +69,16 @@ def get_doctor_by_email(email):
         print(e)
         return None
 
+def get_doctor_by_id(id):
+    try:
+        doctor = doctor_collection.find_one({"_id":ObjectId(id)})
+        if doctor:
+            doctor["_id"] = str(doctor["_id"])
+            return doctor
+        return False
+    except errors.PyMongoError as e:
+        print(e)
+        return None
 
 def get_patient_by_email(email):
     try:
@@ -80,6 +90,16 @@ def get_patient_by_email(email):
         print(e)
         return None
 
+def get_patient_by_id(id):
+    try:
+        patient = patient_collection.find_one({"_id":ObjectId(id)})
+        if patient:
+            patient["_id"] = str(patient["_id"])
+            return patient
+        return False
+    except errors.PyMongoError as e:
+        print(e)
+        return None
 
 def get_all_doctors():
     try:
@@ -125,6 +145,7 @@ def set_doctor_availability(doctor_id, is_available):
         print(e)
         return False
 
+# Prescription Handling
 def create_prescription(doctor_id, patient_id, diagnosis, medication):
     try:
         created_prescription = prescription_collection.insert_one({
