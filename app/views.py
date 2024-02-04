@@ -182,19 +182,18 @@ def create_prescription():
         return jsonify({"message": "Unauthorized"}), 403
     data = request.get_json()
     try:
-        patient_id = data.get("patient_id")
+        patient_email = data.get("patient_email")
         doctor_id = user.get_user_id(auth_token)
         if not doctor_id:
             return jsonify({"message": "Invalid token"}), 401
         diagnosis = data.get("diagnosis")
         medication = data.get("medication")
-        created_prescription = db.create_prescription(doctor_id, patient_id, diagnosis, medication)
+        patient_obj = db.get_patient_by_email(patient_email)
+        created_prescription = db.create_prescription(doctor_id, patient_obj["_id"], diagnosis, medication)
         prescription_path = pdf.gen_prescription(created_prescription)
-        patient_obj = db.get_patient_by_id(patient_id)
         email = patient_obj.get("email")
         if email:
             email_list = email.split()
-            print(email_list)
             mail.send_email(email_list, patient_obj["name"], prescription_path)
             return jsonify({"message":"Prescription created successfully and sent to mail."}), 200
         else:
