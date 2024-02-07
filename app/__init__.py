@@ -5,7 +5,8 @@ from decouple import config
 from utils import collection
 
 app = Flask(__name__)
-CORS(app)
+allowed_origins = ["https://healthsync-neon.vercel.app", "http://localhost:3000"]
+CORS(app, resources={r"/*": {"origins": allowed_origins}})
    
 app.config['MAIL_SERVER']='smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
