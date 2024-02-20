@@ -120,7 +120,6 @@ async def analyze_disease():
             speciality = res["answer"]
         speciality = re.sub(r'[^\w\s]', '', speciality)
         sp_list = speciality.split(" ")
-        print(sp_list)
         d_set = set()
         for sp in sp_list:
             if sp!="":
