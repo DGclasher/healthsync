@@ -1,4 +1,5 @@
 .env
 .venv
 tests
+vercel.json
 **/__pycache__
